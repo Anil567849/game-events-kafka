@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import BasketBall from "./(home)/@basketball/page";
 import Soccer from "./(home)/@soccer/page";
+import { kafkaAdmin } from '@/lib/kafka/kafkaAdmin';
 
 interface ScoreData {
   sport: string;
@@ -54,11 +55,23 @@ export default function Home() {
     return <div>Loading...</div>;
   }
 
+  async function handleList(){
+
+    const res = await fetch("http://localhost:3000/api/kafka/get-topic");
+    const data = await res.json();
+    console.log(data);
+    
+    
+  }
+
+
+
   return (
     <div className="min-h-screen min-w-screen flex flex-col items-center justify-center p-8 bg-gradient-to-br from-purple-700 via-indigo-800 to-blue-900">
       <div className="grid grid-cols-2 gap-5">
-        <BasketBall score={scores.basketball} />
-        <Soccer score={scores.soccer} />
+        <button onClick={handleList}>Get List</button>
+        {/* <BasketBall score={scores.basketball} />
+        <Soccer score={scores.soccer} /> */}
       </div>
     </div>
   );

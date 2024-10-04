@@ -1,7 +1,9 @@
 import { NextRequest } from "next/server";
 import { CompressionTypes } from "kafkajs";
 import { kafkaClient } from "../../../../lib/kafka";
-const producer = kafkaClient.producer() // allowAutoTopicCreation: true;
+const producer = kafkaClient.producer({
+    allowAutoTopicCreation: false,
+}) // allowAutoTopicCreation: true;
 
 
 export async function POST(request: NextRequest){
