@@ -3,7 +3,7 @@ import { kafkaClient } from ".";
 import { ILOffset } from "@/types/kafka";
 
 
-export class kafkaAdmin {
+export class KafkaAdmin {
     admin: Admin | null = null;
 
     constructor(){
@@ -66,7 +66,7 @@ export class kafkaAdmin {
             // Fetch the latest offsets for each topic
             const latestOffsets: ILOffset[][] = await Promise.all(
                 topics.map(async (topic: string) => {
-                return await this.admin?.fetchTopicOffsets(topic) as ILOffset[];
+                    return await this.admin?.fetchTopicOffsets(topic) as ILOffset[];
                 })
             );
     
@@ -99,6 +99,50 @@ export class kafkaAdmin {
                     await new Promise(resolve => setTimeout(resolve, 1000)); // Small delay to process messages
                 })
             );
+            return scores;
+        } catch (error) {
+            console.log('**********************error is: ', error);
+            return [];
+        } finally {
+            if(consumerClient) await consumerClient?.disconnect();
+            await this.disconnect();
+        }
+    }
+
+    async getOneLatestScores(oneTopic: string): Promise<{ sport: string; score: string }[]> {
+        let consumerClient: Consumer | null = null;
+        try {
+            await this.connect()
+            
+            // Fetch the latest offsets for each topic
+            const latestOffset = await this.admin?.fetchTopicOffsets(oneTopic) as ILOffset[];
+     
+    
+            consumerClient = kafkaClient.consumer({ groupId: 'temp-group-' + Date.now() });
+            await consumerClient.connect();
+    
+            const scores: { sport: string; score: string }[] = [];
+    
+            // Create a promise for each topic to consume its latest message
+            await consumerClient?.subscribe({ topic: oneTopic, fromBeginning: false });
+            
+            // Consume the latest message from the topic
+            await consumerClient?.run({
+                eachMessage: async ({ topic: t, message }) => {
+                    const score = message.value?.toString() || '';
+                    console.log(`${t} message:`, score);
+                    // Store the score
+                    scores.push({ sport: t, score });
+                },
+            });
+        
+            // Seek to the latest offset
+            const topicOffsets = parseInt(latestOffset[0].offset)-1;
+            await consumerClient?.seek({ topic: oneTopic, partition: 0, offset: topicOffsets.toString() })
+    
+            // Wait briefly to ensure the consumer runs for the latest message
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Small delay to process messages
+              
             return scores;
         } catch (error) {
             console.log('**********************error is: ', error);

@@ -1,8 +1,8 @@
-import { kafkaAdmin } from '@/lib/kafka/kafkaAdmin';
+import { KafkaAdmin } from '@/lib/kafka/kafkaAdmin';
 
 export async function GET() {
   try {
-    const kAdmin = new kafkaAdmin();
+    const kAdmin = new KafkaAdmin();
     const data = await kAdmin.getTopicMetadata();
     return Response.json(data);
   } catch (error) {

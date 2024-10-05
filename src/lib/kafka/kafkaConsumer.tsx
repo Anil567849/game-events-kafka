@@ -1,30 +1,41 @@
 import { Consumer } from "kafkajs";
 import { kafkaClient } from ".";
+import { KafkaAdmin } from "./kafkaAdmin";
 
-type UpdateCallback = (score: string) => void;
+type UpdateCallback = (topic: string, score: string) => void;
 
-export async function initKafkaConsumers(onSoccerUpdate: UpdateCallback, onBasketballUpdate: UpdateCallback) {
-  const soccer = kafkaClient.consumer({ groupId: 'soccer' });
-  const basketball = kafkaClient.consumer({ groupId: 'basketball' });
+export async function kafkaConsumers(onUpdate: UpdateCallback) {
 
-  await soccer.connect();
-  await basketball.connect();
-  await soccer.subscribe({ topic: 'soccer', fromBeginning: true });
-  await basketball.subscribe({ topic: 'basketball', fromBeginning: true });
+  const kAdmin = new KafkaAdmin();
+  try {
+    let topics = await kAdmin.getTopicList();
+    topics = topics.filter((topic) => topic !== '__consumer_offsets')
+    const consumerPromises = topics.map(async (topic) => {
+        const groupId = `${topic}-group`;
+        const consumer = kafkaClient.consumer({ groupId });
 
-  await soccer.run({
-    eachMessage: async ({ message }) => {
-      const score = message.value?.toString() || '';
-      console.log('Soccer message:', score);
-      onSoccerUpdate(score);
-    },
-  });
+        await consumer.connect();
+        await consumer.subscribe({ topic, fromBeginning: true });
 
-  await basketball.run({
-    eachMessage: async ({ message }) => {
-      const score = message.value?.toString() || '';
-      console.log('Basketball message:', score);
-      onBasketballUpdate(score);
-    },
-  });
-}
+        await consumer.run({
+          eachMessage: async ({ topic, message }) => {
+            const score = message.value?.toString() || '';
+            console.log(`Got a message from topic ${topic}:`, score);
+            onUpdate(topic, score);
+          },
+        });
+
+        return consumer; // Return the consumer for potential cleanup later
+    });
+
+    const consumers = await Promise.all(consumerPromises);
+
+    // Return a cleanup function
+    return async () => {
+      await Promise.all(consumers.map(consumer => consumer.disconnect()));
+    };
+  } catch (error) {
+    console.error('Error setting up Kafka consumers:', error);
+    throw error;
+  }
+} 

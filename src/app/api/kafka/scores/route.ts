@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { initKafkaConsumers } from '../../../../lib/kafka/kafkaConsumer';
+import { kafkaConsumers } from '../../../../lib/kafka/kafkaConsumer';
 
 // export const dynamic = 'force-dynamic';
 // export const runtime = 'edge';
@@ -15,10 +15,9 @@ export async function GET(req: NextRequest) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ sport, score })}\n\n`));
       };
 
-      await initKafkaConsumers(
-        (score: any) => sendUpdate('soccer', score),
-        (score: any) => sendUpdate('basketball', score)
-      );
+      const func = (topic: string, score: any) => sendUpdate(topic, score)
+
+      await kafkaConsumers(func);
 
       // Keep the connection alive
       const interval = setInterval(() => {

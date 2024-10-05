@@ -1,77 +1,44 @@
 'use client'
 import { useEffect, useState } from 'react';
-import BasketBall from "./(home)/@basketball/page";
-import Soccer from "./(home)/@soccer/page";
-import { kafkaAdmin } from '@/lib/kafka/kafkaAdmin';
-
-interface ScoreData {
-  sport: string;
-  score: string
-}
+import MainCard from '@/_components/MainCard';
 
 export default function Home() {
-  const [scores, setScores] = useState<Record<string, string>>({
-    soccer: '',
-    basketball: ''
-  });
   const [loading, setLoading] = useState(true);
+  const [topics, setTopics] = useState<string[]>([]);
 
   useEffect(() => {
-    // Fetch initial scores
-    fetch('/api/kafka/initial-scores')
-      .then(response => response.json())
-      .then((data: ScoreData[]) => {
-        console.log('data', data);
-        
-        const newScores = { ...scores };
-        data.forEach(item => {
-          newScores[item.sport] = item.score;
-        });
-        setScores(newScores);
+
+    async function getAllTopics(){
+      try {
+        const res = await fetch("http://localhost:3000/api/kafka/get-topic");
+        let {data}: {data: string[]} = await res.json();
+        // console.log(data);
+        data = data.filter((item) => item !== '__consumer_offsets');
+        setTopics(data);
         setLoading(false);
-      })
-      .catch(error => {
-        console.error('Error fetching initial scores:', error);
-        setLoading(false);
-      });
+      } catch (error) {
+        console.log('error:', error);
+      }      
+    }
 
-    // Set up SSE for real-time updates
-    const eventSource = new EventSource('/api/kafka/scores');
-
-    eventSource.onmessage = (event) => {
-      const data: ScoreData = JSON.parse(event.data);
-      setScores(prevScores => ({
-        ...prevScores,
-        [data.sport]: data.score
-      }));
-    };
-
-    return () => {
-      eventSource.close();
-    };
+    getAllTopics();
   }, []);
 
   if (loading) {
     return <div>Loading...</div>;
   }
-
-  async function handleList(){
-
-    const res = await fetch("http://localhost:3000/api/kafka/get-topic");
-    const data = await res.json();
-    console.log(data);
-    
-    
-  }
-
-
-
+  
   return (
-    <div className="min-h-screen min-w-screen flex flex-col items-center justify-center p-8 bg-gradient-to-br from-purple-700 via-indigo-800 to-blue-900">
-      <div className="grid grid-cols-2 gap-5">
-        <button onClick={handleList}>Get List</button>
-        {/* <BasketBall score={scores.basketball} />
-        <Soccer score={scores.soccer} /> */}
+    <div className="min-h-screen min-w-screen flex flex-col items-center justify-start p-8 bg-gradient-to-br from-purple-700 via-indigo-800 to-blue-900">
+
+      <h1 className='text-2xl md:text-4xl font-extrabold text-center text-white mb-8 tracking-tight'>Select a Game</h1>
+
+      <div className="grid grid-cols-3 gap-5">
+        {
+          topics.map((topic, ind) => {
+            return <MainCard key={ind} topic={topic}/>
+          })
+        }
       </div>
     </div>
   );
