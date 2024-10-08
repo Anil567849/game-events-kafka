@@ -1,6 +1,7 @@
 import { motion } from "framer-motion"
 
-export default function ScoreCard({topic, score}: {topic: string, score: Record<string, string>}) {
+export default function ScoreCard({key, topic, score}: {key: number, topic: string, score: {partitionId: number, teamA: string, teamB: string}}) {
+
   return (
     <div className="">
       <motion.div
@@ -19,7 +20,7 @@ export default function ScoreCard({topic, score}: {topic: string, score: Record<
             transition={{ delay: 0.3, type: "spring", stiffness: 260, damping: 20 }}
             className="text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-red-500 to-pink-500"
           >
-            Team A: {score.teamA}
+            Team A: {score?.teamA ?? 0}
           </motion.div>
           <motion.div
             initial={{ y: 20, opacity: 0 }}
@@ -35,7 +36,7 @@ export default function ScoreCard({topic, score}: {topic: string, score: Record<
             transition={{ delay: 0.3, type: "spring", stiffness: 260, damping: 20 }}
             className="text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-red-500 to-pink-500"
           >
-            Team B: {score.teamB}
+            Team B: {score?.teamB ?? 0}
           </motion.div>
         </div>
         <motion.div

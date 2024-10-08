@@ -1,31 +1,50 @@
 import { NextRequest } from 'next/server';
 import { kafkaConsumers } from '../../../../lib/kafka/kafkaConsumer';
 
-// export const dynamic = 'force-dynamic';
-// export const runtime = 'edge';
-
 export async function GET(req: NextRequest) {
   const encoder = new TextEncoder();
+  let isStreamClosed = false;
 
   const stream = new ReadableStream({
     async start(controller) {
-      const sendUpdate = (sport: string, score: string) => {
-        // The controller is like the postal service, and enqueue is like telling the postal service, "Please send this letter next!"
-        // The encoder turns your human-readable message into a series of numbers that computers can send quickly.
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ sport, score })}\n\n`));
+      const sendUpdate = (sport: string, score: string, partition: number) => {
+        if (!isStreamClosed) {
+          try {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ sport, score, partition })}\n\n`));
+          } catch (error) {
+            console.error('Error enqueueing data:', error);
+            isStreamClosed = true;
+          }
+        }
       };
 
-      const func = (topic: string, score: any) => sendUpdate(topic, score)
+      const func = (topic: string, score: any, partition: number) => sendUpdate(topic, score, partition);
 
-      await kafkaConsumers(func);
+      try {
+        await kafkaConsumers(func);
+      } catch (error) {
+        console.error('Error in kafkaConsumers:', error);
+        isStreamClosed = true;
+        controller.close();
+        return;
+      }
 
-      // Keep the connection alive
       const interval = setInterval(() => {
-        controller.enqueue(encoder.encode(':keepalive\n\n'));
+        if (!isStreamClosed) {
+          try {
+            controller.enqueue(encoder.encode(':keepalive\n\n'));
+          } catch (error) {
+            console.error('Error sending keepalive:', error);
+            isStreamClosed = true;
+            clearInterval(interval);
+          }
+        } else {
+          clearInterval(interval);
+        }
       }, 30000);
 
-      // Clean up on close
       req.signal.addEventListener('abort', () => {
+        isStreamClosed = true;
         clearInterval(interval);
         controller.close();
       });

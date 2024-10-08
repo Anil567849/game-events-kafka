@@ -2,7 +2,7 @@ import { Consumer } from "kafkajs";
 import { kafkaClient } from ".";
 import { KafkaAdmin } from "./kafkaAdmin";
 
-type UpdateCallback = (topic: string, score: string) => void;
+type UpdateCallback = (topic: string, score: string, partition: number) => void;
 
 export async function kafkaConsumers(onUpdate: UpdateCallback) {
 
@@ -12,42 +12,34 @@ export async function kafkaConsumers(onUpdate: UpdateCallback) {
     topics = topics.filter((topic) => topic !== '__consumer_offsets')
     const consumerPromises = topics.map(async (topic) => {
         const groupId = `${topic}-group`;
-        const consumer = kafkaClient.consumer({ groupId });
-        const consumer1 = kafkaClient.consumer({ groupId });
 
-        await consumer.connect();
-        await consumer1.connect();
-        await consumer.subscribe({ topic, fromBeginning: true });
-        await consumer1.subscribe({ topic, fromBeginning: true });
+        let consumers: Consumer[] = [];
+        for (let i = 0; i < 5; i++) {
+          const consumer = kafkaClient.consumer({ groupId });
 
-        await consumer.run({
-          eachMessage: async ({ topic, message, partition }) => {
-            if(partition == 0){
-              const score = message.value?.toString() || '';
-              console.log(`Got a message from topic ${topic} and partition ${partition}:`, score);
-              onUpdate(topic, score);
-            }
-          },
-        });
+          await consumer.connect();
+          await consumer.subscribe({ topic, fromBeginning: true });
 
-        await consumer1.run({
-          eachMessage: async ({ topic, message, partition }) => {
-            if(partition === 1){
-              const score = message.value?.toString() || '';
-              console.log(`Got a message from topic ${topic} and partition ${partition}:`, score);
-              onUpdate(topic, score);
-            }
-          },
-        });
+          await consumer.run({
+            eachMessage: async ({ topic, message, partition }) => {
+                const score = message.value?.toString() || '';
+                const key = message.key?.toString() || '';
+                console.log(`Got a message from topic ${topic}, key ${key}, and partition ${partition}:`, score);
+                onUpdate(topic, score, partition);
+            },
+          });
 
-        return consumer; // Return the consumer for potential cleanup later
+          consumers.push(consumer); // Return the consumer for potential cleanup later
+        }
+        return consumers;
     });
 
     const consumers = await Promise.all(consumerPromises);
 
     // Return a cleanup function
     return async () => {
-      await Promise.all(consumers.map(consumer => consumer.disconnect()));
+      const allConsumers = consumers.flat();
+      await Promise.all(allConsumers.map(consumer => consumer.disconnect()));
     };
   } catch (error) {
     console.error('Error setting up Kafka consumers:', error);
