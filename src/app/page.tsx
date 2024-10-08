@@ -15,6 +15,8 @@ export default function Home() {
         // console.log(data);
         data = data.filter((item) => item !== '__consumer_offsets');
         setTopics(data);
+        console.log(data);
+        
         setLoading(false);
       } catch (error) {
         console.log('error:', error);

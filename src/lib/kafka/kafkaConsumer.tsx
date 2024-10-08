@@ -13,15 +13,30 @@ export async function kafkaConsumers(onUpdate: UpdateCallback) {
     const consumerPromises = topics.map(async (topic) => {
         const groupId = `${topic}-group`;
         const consumer = kafkaClient.consumer({ groupId });
+        const consumer1 = kafkaClient.consumer({ groupId });
 
         await consumer.connect();
+        await consumer1.connect();
         await consumer.subscribe({ topic, fromBeginning: true });
+        await consumer1.subscribe({ topic, fromBeginning: true });
 
         await consumer.run({
-          eachMessage: async ({ topic, message }) => {
-            const score = message.value?.toString() || '';
-            console.log(`Got a message from topic ${topic}:`, score);
-            onUpdate(topic, score);
+          eachMessage: async ({ topic, message, partition }) => {
+            if(partition == 0){
+              const score = message.value?.toString() || '';
+              console.log(`Got a message from topic ${topic} and partition ${partition}:`, score);
+              onUpdate(topic, score);
+            }
+          },
+        });
+
+        await consumer1.run({
+          eachMessage: async ({ topic, message, partition }) => {
+            if(partition === 1){
+              const score = message.value?.toString() || '';
+              console.log(`Got a message from topic ${topic} and partition ${partition}:`, score);
+              onUpdate(topic, score);
+            }
           },
         });
 

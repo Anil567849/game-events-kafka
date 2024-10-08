@@ -13,10 +13,12 @@ function GameName({params}: {params: {gameName: string}}) {
       teamB: ''
     });
     const [loading, setLoading] = useState(true);
+    const [numMatches, setNumMatches] = useState(0); // number of partitions == number of matches
 
     useEffect(() => {
-        getInitialScores();
+        // getInitialScores();
         // Set up SSE for real-time updates
+        getTopicMetadata();
         const eventSource = new EventSource('/api/kafka/scores');
 
         eventSource.onmessage = (event) => {
@@ -55,9 +57,35 @@ function GameName({params}: {params: {gameName: string}}) {
         }
     }
 
+    async function getTopicMetadata(){
+        try {
+            const url = "http://localhost:3000/api/kafka/get-topic-metadata";
+            const res = await fetch(url, {
+                method: 'POST',
+                body: JSON.stringify({topic: params.gameName})
+            });
+            const {topics} = await res.json();
+            setNumMatches(topics[0].partitions.length);
+            setLoading(false);
+        } catch (error) {
+            console.error('Error fetching initial scores:', error);
+            setScores({teamA: '0', teamB: '0'});
+            setLoading(false);
+        }
+    }
+
     return (
         <div className="min-h-screen min-w-screen flex flex-col items-center justify-start p-8 bg-gradient-to-br from-purple-700 via-indigo-800 to-blue-900">
-            <ScoreCard topic={params.gameName} score={scores} />
+
+            <h1 className='text-2xl md:text-4xl font-extrabold text-center text-white mb-8 tracking-tight'>{params.gameName}</h1>
+
+            <div className="grid grid-cols-3 gap-5">
+                {
+                    Array.from({ length: numMatches }).map((x, ind) => {
+                        return <ScoreCard key={ind} topic={`Game: ${ind}`} score={scores} />
+                    })
+                }
+            </div>
         </div>
     )
 }

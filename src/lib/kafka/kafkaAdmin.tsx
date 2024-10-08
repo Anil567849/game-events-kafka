@@ -157,7 +157,7 @@ export class KafkaAdmin {
         try {
             await this.connect();
             
-            const metadata = await this.admin?.fetchTopicMetadata();
+            const metadata = await this.admin?.fetchTopicMetadata(options);
 
             return { topics: metadata?.topics || [] };
 
@@ -169,7 +169,7 @@ export class KafkaAdmin {
             await this.disconnect();
         }
     }
-
+    
     async connect() {
         if (this.admin) {
             await this.admin.connect();
